@@ -12,6 +12,8 @@ local FeedView = {
     -- HTTP Basic Auth (optional)
     HTTP_AUTH_USERNAME = "http_auth_username",
     HTTP_AUTH_PASSWORD = "http_auth_password",
+    -- Static cookies for browser/magic-link authenticated sites (optional)
+    COOKIES = "cookies",
 }
 
 function FeedView:getList(feed_config, callback, edit_feed_attribute_callback, delete_feed_callback)
@@ -75,6 +77,7 @@ function FeedView:getItem(id, feed, edit_feed_callback, delete_feed_callback)
     local http_auth = feed.http_auth or { username = nil, password = nil }
     local http_auth_username = http_auth.username
     local http_auth_password_set = type(http_auth.password) == "string" and #http_auth.password > 0
+    local cookies = feed.cookies or ""
 
     local vc = {
         {
@@ -177,6 +180,19 @@ function FeedView:getItem(id, feed, edit_feed_callback, delete_feed_callback)
                     id,
                     FeedView.HTTP_AUTH_PASSWORD,
                     ""
+                )
+            end
+        },
+        --- Static cookies (optional, for browser/magic-link authenticated sites)
+        "---",
+        {
+            _("Cookies (name=value; …)"),
+            cookies,
+            callback = function()
+                edit_feed_callback(
+                    id,
+                    FeedView.COOKIES,
+                    cookies
                 )
             end
         },
