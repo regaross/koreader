@@ -36,6 +36,12 @@ return {--do NOT change this line
 -- and an 'auth' table that contains form data used for user authentication {form_key = value, …}.
 -- Exampple: credentials={url="https://secure.lemonde.fr/sfuser/connexion", auth={email="titi@gmouil.com", password="xxxx"}}
 
+-- Optional 'cookies' field is a plain string of name=value pairs (Cookie header format) for sites
+-- that use browser-based authentication (e.g. magic-link / email login flows).
+-- Copy the session cookies from your browser after logging in and paste them here.
+-- NOTE: cookies are stored as plain text in this file.
+-- Example: cookies="ghost-members-ssr=abc123; ghost-members-ssr.sig=xyz"
+
  -- comment out line ("--" at line start) to stop downloading source
 
 
@@ -43,5 +49,7 @@ return {--do NOT change this line
 
  { "https://github.com/koreader/koreader/releases.atom", limit = 3, download_full_article=false, include_images=false, enable_filter=true, filter_element = "div.release-main-section", block_element = ""},
  { "https://ourworldindata.org/atom.xml", limit = 5 , download_full_article=true, include_images=true, enable_filter=false, filter_element = "", block_element = ""},
+ -- Example with static cookies for magic-link / email authenticated sites:
+ -- { "https://example.com/members/rss", limit = 5, download_full_article=true, cookies="session=abc123; session.sig=xyz"},
 
 }--do NOT change this line

@@ -63,7 +63,22 @@ local function getEmptyFeed()
         filter_element = "",
         block_element = "",
         http_auth = { username = nil, password = nil },
+        cookies = "",
     }
+end
+
+-- Parses a Cookie header string ("name=value; name2=value2") into a list of
+-- {name=..., value=...} tables accepted by DownloadBackend.
+local function parseCookieString(s)
+    local result = {}
+    if type(s) ~= "string" or s == "" then return result end
+    for pair in s:gmatch("[^;]+") do
+        local name, value = pair:match("^%s*([^=]+)%s*=%s*(.-)%s*$")
+        if name and value then
+            table.insert(result, { name = name, value = value })
+        end
+    end
+    return result
 end
 
 -- There can be multiple links.
@@ -319,6 +334,7 @@ function NewsDownloader:loadConfigAndProcessFeeds(touchmenu_instance)
         local block_element = parseCommaSeparatedOption(feed.block_element)
         local credentials = feed.credentials
         local http_auth = feed.http_auth
+        local feed_cookies = feed.cookies
         -- Check if the two required attributes are set.
         if url and limit then
             feed_message = T(_("Processing %1/%2:\n%3"), idx, total_feed_entries, BD.url(url))
@@ -328,6 +344,7 @@ function NewsDownloader:loadConfigAndProcessFeeds(touchmenu_instance)
                 url,
                 credentials,
                 http_auth,
+                feed_cookies,
                 tonumber(limit),
                 unsupported_feeds_urls,
                 download_full_article,
@@ -407,7 +424,7 @@ function NewsDownloader:loadConfigAndProcessFeedsWithUI(touchmenu_instance)
     end)
 end
 
-function NewsDownloader:processFeedSource(url, credentials, http_auth, limit, unsupported_feeds_urls, download_full_article, include_images, message, enable_filter, filter_element, block_element)
+function NewsDownloader:processFeedSource(url, credentials, http_auth, feed_cookies, limit, unsupported_feeds_urls, download_full_article, include_images, message, enable_filter, filter_element, block_element)
     -- Check if we have a cached response first
     local cache = DownloadBackend:getCache()
     local cached_response = cache:check(url)
@@ -418,6 +435,18 @@ function NewsDownloader:processFeedSource(url, credentials, http_auth, limit, un
     if credentials ~= nil then
         logger.dbg("Auth Cookies from ", credentials.url)
         cookies = DownloadBackend:getConnectionCookies(credentials.url, credentials.auth)
+    end
+
+    -- Merge any static cookies from the feed config (for magic-link / browser-auth sites).
+    -- Credential-flow cookies are inserted first so they appear first in the Cookie header.
+    -- Static cookies are appended after; if the same name appears in both, the credential
+    -- cookie value will be sent first (most servers honour the first occurrence).
+    local static_cookies = parseCookieString(feed_cookies)
+    if #static_cookies > 0 then
+        cookies = cookies or {}
+        for _, c in ipairs(static_cookies) do
+            table.insert(cookies, c)
+        end
     end
 
     if http_auth and http_auth.username and http_auth.password then
@@ -966,7 +995,8 @@ function NewsDownloader:editFeedAttribute(id, key, value)
         or key == FeedView.FILTER_ELEMENT
         or key == FeedView.BLOCK_ELEMENT
         or key == FeedView.HTTP_AUTH_USERNAME
-        or key == FeedView.HTTP_AUTH_PASSWORD then
+        or key == FeedView.HTTP_AUTH_PASSWORD
+        or key == FeedView.COOKIES then
 
         local title
         local input_type
@@ -992,6 +1022,10 @@ function NewsDownloader:editFeedAttribute(id, key, value)
             input_type = "string"
         elseif key == FeedView.HTTP_AUTH_PASSWORD then
             title = _("HTTP auth password")
+            input_type = "string"
+        elseif key == FeedView.COOKIES then
+            title = _("Cookies")
+            description = _("Paste browser session cookies in name=value; name2=value2 format. NOTE: stored as plain text.")
             input_type = "string"
         else
             return false
@@ -1197,6 +1231,8 @@ function NewsDownloader:updateFeedConfig(id, key, value)
             elseif key == FeedView.HTTP_AUTH_PASSWORD then
                 feed.http_auth = feed.http_auth or { username = "", password = "" }
                 feed.http_auth.password = value or ""
+            elseif key == FeedView.COOKIES then
+                feed.cookies = value or ""
             end
         end
         -- Now we insert the updated (or newly created) feed into the
